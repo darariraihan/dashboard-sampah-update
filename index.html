@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>html{color-scheme:light dark}body{margin:0}</style>
+<title>Dashboard Sampah Sekolah</title>
+<style>
+/* Layout: satu kolom lebar, kartu per indikator; grafik di kiri, ringkasan angka di kanan, tabel rinci per sekolah di bawah. */
+:root {
+  --plane: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --negeri: #2a78d6;
+  --swasta: #eb6834;
+  --good: #0ca30c;
+  --warn: #fab219;
+  --crit: #d03b3b;
+  --neutral: #d4d3cb;
+  --ord-1: #86b6ef;
+  --ord-2: #5598e7;
+  --ord-3: #2a78d6;
+  --ord-4: #184f95;
+  --wash: rgba(11,11,11,0.04);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --plane: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --negeri: #3987e5; --swasta: #d95926; --neutral: #4b4a46; --wash: rgba(255,255,255,0.05);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --plane: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --negeri: #3987e5; --swasta: #d95926; --neutral: #4b4a46; --wash: rgba(255,255,255,0.05);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--plane); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.45;
+  padding-block: 24px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-size: 26px; line-height: 1.15; margin: 0; font-weight: 650; text-wrap: balance; }
+h2 { font-size: 17px; margin: 0; font-weight: 650; text-wrap: balance; }
+h3 { font-size: 12px; margin: 0 0 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink2); }
+p { margin: 0; }
+.sub { color: var(--ink2); margin-top: 6px; max-width: 70ch; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; min-width: 0; }
+.card-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.card-head p { color: var(--ink2); max-width: 75ch; }
+.card-head.toolbar { flex-direction: row; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.toolbar > div { flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+button, select, input { font: inherit; color: var(--ink); }
+.btn { background: transparent; border: 1px solid var(--axis); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.btn:hover { background: var(--wash); }
+:focus-visible { outline: 2px solid var(--negeri); outline-offset: 2px; }
+
+/* komposisi */
+.compo { margin-top: 14px; max-width: 520px; }
+.compo .thin { display: flex; gap: 2px; height: 8px; }
+.compo .thin span { display: block; height: 100%; }
+.compo .thin span:first-child { border-radius: 4px 0 0 4px; }
+.compo .thin span:last-child { border-radius: 0 4px 4px 0; }
+.compo .legend { margin-top: 8px; }
+
+/* KPI */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.kpi .k-label { color: var(--ink2); font-size: 13px; }
+.kpi .k-value { font-size: 32px; font-weight: 650; line-height: 1.1; margin-top: 2px; }
+.kpi .k-note { color: var(--muted); font-size: 12px; }
+.kpi .k-split { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--ink2); }
+.k-split div { display: flex; align-items: center; gap: 6px; }
+.k-split strong { margin-left: auto; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+/* ringkasan temuan */
+.findings { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; max-width: 80ch; }
+
+/* legend */
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--ink2); font-size: 12.5px; margin-bottom: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: none; }
+
+/* grouped bars */
+.gchart { --lab: 210px; --tail: 92px; position: relative; }
+.grows { position: relative; display: flex; flex-direction: column; gap: 14px; padding-bottom: 4px; }
+.ggrid { position: absolute; top: 0; bottom: 0; left: var(--lab); right: var(--tail); pointer-events: none; }
+.ggrid i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--grid); }
+.grow { position: relative; display: grid; grid-template-columns: var(--lab) 1fr; align-items: center; border-radius: 6px; }
+.grow:hover, .grow:focus-visible { background: var(--wash); }
+.glabel { padding-right: 12px; font-size: 13px; }
+.bars { padding-right: var(--tail); display: flex; flex-direction: column; gap: 2px; }
+.btrack { position: relative; height: 14px; }
+.fill { height: 100%; border-radius: 0 4px 4px 0; min-width: 0; }
+.blabel { position: absolute; top: 50%; transform: translateY(-50%); margin-left: 6px; white-space: nowrap; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.blabel em { font-style: normal; font-weight: 400; color: var(--muted); margin-left: 4px; }
+.gaxis { position: relative; height: 18px; margin-left: var(--lab); margin-right: var(--tail); border-top: 1px solid var(--axis); margin-top: 6px; }
+.gaxis span { position: absolute; top: 4px; transform: translateX(-50%); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gaxis span:first-child { transform: none; }
+
+/* stacked bars */
+.schart { --lab: 130px; }
+.srow { display: grid; grid-template-columns: var(--lab) 1fr; align-items: center; margin-bottom: 10px; gap: 8px; }
+.slabel { font-size: 13px; line-height: 1.25; }
+.slabel small { display: block; color: var(--muted); font-size: 11.5px; }
+.stack { display: flex; gap: 2px; height: 24px; }
+.seg { display: flex; align-items: center; padding-left: 8px; min-width: 2px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; border-radius: 0; cursor: default; }
+.seg:last-child { border-radius: 0 4px 4px 0; }
+.seg:hover, .seg:focus-visible { filter: brightness(1.1) saturate(1.1); outline-offset: 0; }
+.seg span { white-space: nowrap; }
+.saxis { position: relative; height: 18px; margin-left: calc(var(--lab) + 8px); border-top: 1px solid var(--axis); margin-top: 2px; }
+.saxis span { position: absolute; top: 4px; transform: translateX(-50%); font-size: 11px; color: var(--muted); }
+.saxis span:first-child { transform: none; }
+.saxis span:last-child { transform: translateX(-100%); }
+
+/* two-column section body */
+.body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.stackcol { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.sumtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sumtable th { text-align: right; font-weight: 600; color: var(--ink2); font-size: 12px; padding: 0 0 6px 8px; white-space: nowrap; }
+.sumtable th:first-child, .sumtable td:first-child { text-align: left; padding-left: 0; }
+.sumtable td { text-align: right; padding: 7px 0 7px 8px; border-top: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sumtable td:first-child { white-space: normal; }
+.sumtable td:first-child { color: var(--ink2); font-variant-numeric: normal; }
+.cap { color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+/* stat tiles (maggot) */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.tile { border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.tile .k-value { font-size: 28px; font-weight: 650; line-height: 1.1; }
+.tile .k-label { color: var(--ink2); font-size: 13px; }
+.tile .k-note { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.list { margin: 10px 0 0; padding-left: 18px; color: var(--ink2); }
+
+/* tooltip */
+#tip { position: fixed; z-index: 50; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--axis); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(0,0,0,.14); max-width: 260px; }
+.tt-title { font-weight: 600; margin-bottom: 4px; }
+.tt-row { display: flex; align-items: center; gap: 6px; color: var(--ink2); }
+.tt-row strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.tt-key { width: 12px; height: 3px; border-radius: 2px; flex: none; }
+
+/* tabel rinci */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.filters select, .filters input { background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 6px 10px; min-width: 0; }
+.filters input { flex: 1 1 200px; }
+.tscroll { overflow-x: auto; border: 1px solid var(--grid); border-radius: 8px; }
+.dtable { border-collapse: collapse; width: 100%; min-width: 1180px; font-size: 13px; }
+.dtable th { position: sticky; top: 0; background: var(--surface); text-align: left; font-size: 12px; color: var(--ink2); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--axis); white-space: nowrap; }
+.dtable td { padding: 7px 10px; border-top: 1px solid var(--grid); vertical-align: top; }
+.dtable tbody tr:first-child td { border-top: 0; }
+.dtable td.name { min-width: 220px; font-weight: 500; }
+.chip { display: inline-flex; align-items: flex-start; gap: 6px; }
+.chip .dot { margin-top: 5px; }
+.chip.none { color: var(--muted); }
+.count { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+
+.notes { color: var(--ink2); font-size: 12.5px; }
+.notes ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; max-width: 90ch; }
+
+@media (max-width: 760px) {
+  h1 { font-size: 22px; }
+  .body { grid-template-columns: 1fr; gap: 20px; }
+  .gchart { --lab: 0px; --tail: 84px; }
+  .grow { grid-template-columns: 1fr; padding-top: 2px; }
+  .glabel { padding-bottom: 4px; }
+  .gaxis { margin-left: 0; }
+  .schart { --lab: 0px; }
+  .srow { grid-template-columns: 1fr; gap: 4px; }
+  .saxis { margin-left: 0; }
+  .slabel small { display: inline; margin-left: 6px; }
+  .card { padding: 14px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fill, .seg { transition: filter .12s; }
+}
+</style>
+
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Dashboard Pengelolaan Sampah Sekolah</h1>
+    <p class="sub">Sarana dan pelaksanaan pengelolaan sampah (pemilahan, pengolahan organik, pengelolaan anorganik), dibandingkan antara sekolah negeri dan swasta. Data dari form pendataan, per 24 November 2026.</p>
+    <div class="compo" id="compo"></div>
+  </header>
+
+  <section class="kpis" id="kpis" aria-label="Ringkasan cakupan"></section>
+
+  <section class="card" id="ringkasan">
+    <div class="card-head"><h2>Temuan utama</h2></div>
+    <ul class="findings">
+      <li>Tempat sampah terpilah dan TPS sudah relatif merata: negeri dan swasta sama-sama di kisaran 63 sampai 88%.</li>
+      <li>Kesenjangan terbesar antara negeri dan swasta ada di bank sampah aktif (75% vs 27%) dan komposter (88% vs 36%), masing-masing sekitar 48 sampai 52 poin, disusul biopori (94% vs 55%).</li>
+      <li>Maggot/BSF baru ada di 2 dari 60 sekolah.</li>
+      <li>Pemilahan sampah sudah berjalan penuh di 23 dari 60 sekolah (38%). Sebanyak 26 sekolah (43%) baru menjalankan sebagian dan 11 sekolah (18%) belum menjalankan.</li>
+      <li>Pengolahan sampah organik ada di 94% sekolah negeri tetapi 45% sekolah swasta. Pengelolaan anorganik (bank sampah atau pengepul) ada di 94% negeri dan 61% swasta.</li>
+      <li>Ada 16 sekolah (27%) yang belum mengolah sampah organik maupun mengelola sampah anorganik, semuanya sekolah swasta.</li>
+      <li>Dari 39 sekolah yang punya biopori, 16 sekolah memiliki biopori yang tidak berfungsi atau hanya sebagian berfungsi.</li>
+    </ul>
+  </section>
+
+  <section class="card" id="overview">
+    <div class="toolbar card-head">
+      <div>
+        <h2>Cakupan sarana dan pelaksanaan: negeri dibanding swasta</h2>
+        <p>Persentase sekolah yang memiliki sarana atau sudah menjalankan kegiatan pengelolaan, dihitung dari sekolah yang sudah mengisi di tiap kelompok.</p>
+      </div>
+      <button class="btn" id="toggleOverview" type="button" aria-pressed="false">Lihat tabel</button>
+    </div>
+    <div id="overviewChart"></div>
+    <div id="overviewTable" hidden></div>
+  </section>
+
+  <div class="wrap" id="sections" style="gap:16px"></div>
+
+  <section class="card" id="tabel">
+    <div class="card-head">
+      <h2>Data per sekolah</h2>
+      <p>Gunakan filter untuk menemukan sekolah yang belum punya sarana tertentu, misalnya untuk ditindaklanjuti.</p>
+    </div>
+    <div class="filters">
+      <select id="fStatus" aria-label="Status sekolah">
+        <option value="">Semua status</option><option>Negeri</option><option>Swasta</option>
+      </select>
+      <select id="fGap" aria-label="Filter sarana">
+        <option value="">Semua sekolah</option>
+        <option value="terpilah">Belum punya tempat sampah terpilah</option>
+        <option value="tps">Belum punya TPS</option>
+        <option value="komposter">Belum punya komposter</option>
+        <option value="biopori">Belum punya biopori</option>
+        <option value="maggot">Belum punya maggot/BSF</option>
+        <option value="bank">Bank sampah belum aktif</option>
+        <option value="pemilahan">Pemilahan belum berjalan penuh</option>
+        <option value="organik">Belum ada pengolahan organik</option>
+        <option value="anorganik">Belum ada pengelolaan anorganik</option>
+      </select>
+      <input id="fSearch" type="search" placeholder="Cari nama sekolah" aria-label="Cari nama sekolah">
+    </div>
+    <div class="tscroll"><table class="dtable" id="dtable"></table></div>
+    <p class="count" id="tcount"></p>
+  </section>
+
+  <section class="card notes">
+    <h2>Catatan data</h2>
+    <ul>
+      <li>Persentase dihitung dari sekolah yang sudah mengisi (16 negeri dan 44 swasta), bukan dari seluruh sekolah di wilayah.</li>
+      <li>Tempat sampah terpilah dihitung dari jawaban Ada/Tidak ada. SMPN 1 dan SMPN 8 menjawab Tidak ada tetapi mengisi jenis wadah anorganik, sehingga tidak dihitung punya.</li>
+      <li>Jumlah dan kapasitas ditulis bebas oleh sekolah dan dibaca apa adanya. Contoh: SMPN 7 menulis 4 wadah di area sekolah dan 1 di tiap kelas, dihitung 18. Kapasitas komposter bercampur satuan liter dan kg, jadi ditampilkan sebagai median per sekolah.</li>
+      <li>Status pemilahan, pengolahan organik, dan pengelolaan anorganik diambil dari kolom 3, 4, dan 5 sheet MASTER. Jawaban bebas dikelompokkan ke cara yang paling mirip. Losida/Lodisa, pupuk, dan pakan ternak masuk Lainnya pada organik. Diambil pengelola RT dan kerja sama pihak ketiga masuk Lainnya pada anorganik. Kerja sama bank sampah RW dihitung bank sampah.</li>
+      <li>Jawaban yang saling bertentangan dibaca sebagai ada: "Biopori, Belum ada pengolahan" dihitung memakai biopori, "Bank sampah, Belum ada pengelolaan" dihitung punya bank sampah, dan "Kerja sama dengan pengepul, Belum ada pengelolaan" dihitung pengepul.</li>
+      <li>Kolom pelaksanaan bisa berbeda dari kolom sarana. Contohnya 17 sekolah punya biopori tetapi tidak menyebut biopori sebagai pengolahan organik, dan 4 sekolah dengan bank sampah aktif tidak menyebut bank sampah di pengelolaan anorganik. SMP N 13 YK di MASTER dicocokkan dengan SMPN 13 Yogyakarta, dan "SMP NMUHAMMADIYAH 8" ditulis sebagai SMP Muhammadiyah 8 Yogyakarta. SMP IT Abu Bakar (NPSN 20403317) dan SMPIT Abu Bakar Yogyakarta Fullday School (NPSN 70063794) punya NPSN berbeda, jadi dihitung sebagai dua sekolah.</li>
+      <li>SMPN 8 memiliki komposter tetapi tidak mengisi jumlah unitnya. SMP Muhammadiyah 1 memiliki maggot/BSF tetapi tidak mengisi kapasitasnya.</li>
+    </ul>
+  </section>
+</main>
+<div id="tip" role="tooltip" hidden></div>
+
+<script>
+(function () {
+  const DATA = [{"nama": "SMPN 1 Yogyakarta", "status": "Negeri", "terpilah": false, "jenis": [], "unitTerpilah": null, "tps": true, "tpsKondisi": "Rusak ringan", "komposter": true, "kompJumlah": 2.0, "kompKapasitas": 20.0, "biopori": true, "bioLubang": 2.0, "bioKondisi": "Tidak berfungsi", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Belum berjalan", "organik": [], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMPN 2 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Residu"], "unitTerpilah": 1.0, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 2.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sebagian berjalan", "organik": ["Biopori"], "anorganik": ["Pengepul"]}, {"nama": "SMPN 3 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 5.0, "tps": true, "tpsKondisi": "Rusak ringan", "komposter": true, "kompJumlah": 11.0, "kompKapasitas": 225.0, "biopori": true, "bioLubang": 2.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMPN 4 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 5.0, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 2.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": ["Biopori"], "anorganik": ["Pengepul"]}, {"nama": "SMPN 5 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 33.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 3.0, "kompKapasitas": 100.0, "biopori": true, "bioLubang": 18.0, "bioKondisi": "Sebagian tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": ["Biopori"], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMPN 6 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 40.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 3.0, "kompKapasitas": 120.0, "biopori": true, "bioLubang": 2.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Bank sampah"]}, {"nama": "SMPN 7 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 18.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 3.0, "biopori": true, "bioLubang": 1.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Sedang", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": ["Lainnya"], "anorganik": ["Bank sampah"]}, {"nama": "SMPN 8 Yogyakarta", "status": "Negeri", "terpilah": false, "jenis": [], "unitTerpilah": null, "tps": false, "tpsKondisi": null, "komposter": true, "kompJumlah": null, "kompKapasitas": 6.0, "biopori": true, "bioLubang": 30.0, "bioKondisi": "Sebagian tidak berfungsi", "bioUkuran": "Besar", "maggot": true, "maggotKap": 5.0, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": ["Komposting", "Biopori", "Maggot/BSF"], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMPN 9 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 15.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 5.0, "kompKapasitas": 30.0, "biopori": true, "bioLubang": 12.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sebagian berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Pengepul"]}, {"nama": "SMPN 10 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 10.0, "tps": false, "tpsKondisi": null, "komposter": true, "kompJumlah": 3.0, "kompKapasitas": 20.0, "biopori": true, "bioLubang": 2.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Belum berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Pengepul"]}, {"nama": "SMPN 11 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 5.0, "tps": false, "tpsKondisi": null, "komposter": true, "kompJumlah": 3.0, "kompKapasitas": 150.0, "biopori": true, "bioLubang": 2.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": ["Komposting"], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMPN 12 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 4.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 4.0, "kompKapasitas": 100.0, "biopori": true, "bioLubang": 6.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Sedang", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sebagian berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMPN 13 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 3.0, "tps": true, "tpsKondisi": "Rusak ringan", "komposter": true, "kompJumlah": 6.0, "kompKapasitas": 25.0, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sebagian berjalan", "organik": ["Komposting"], "anorganik": ["Bank sampah"]}, {"nama": "SMPN 14 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 20.0, "tps": true, "tpsKondisi": "Rusak ringan", "komposter": true, "kompJumlah": 4.0, "kompKapasitas": 120.0, "biopori": true, "bioLubang": 2.0, "bioKondisi": "Sebagian tidak berfungsi", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sebagian berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMPN 15 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 3.0, "tps": false, "tpsKondisi": null, "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 100.0, "biopori": true, "bioLubang": 5.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sebagian berjalan", "organik": ["Biopori"], "anorganik": []}, {"nama": "SMPN 16 Yogyakarta", "status": "Negeri", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 5.0, "tps": false, "tpsKondisi": null, "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 30.0, "biopori": true, "bioLubang": 5.0, "bioKondisi": "Sebagian tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sebagian berjalan", "organik": ["Komposting"], "anorganik": ["Bank sampah"]}, {"nama": "SMP Maria Immaculata Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 2.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 2.0, "kompKapasitas": 30.0, "biopori": true, "bioLubang": 12.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sudah berjalan", "organik": ["Biopori"], "anorganik": ["Pengepul"]}, {"nama": "SMP JOANNES BOSCO YOGYAKARTA", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Lainnya"], "unitTerpilah": 2.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 2.0, "kompKapasitas": 60.0, "biopori": true, "bioLubang": 4.0, "bioKondisi": "Tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sebagian berjalan", "organik": ["Komposting"], "anorganik": ["Pengepul"]}, {"nama": "SMP Pembangunan Ma'arif Yogyakarta", "status": "Swasta", "terpilah": false, "jenis": [], "unitTerpilah": null, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Belum berjalan", "organik": [], "anorganik": []}, {"nama": "SMP Perak Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 1.0, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sebagian berjalan", "organik": ["Komposting"], "anorganik": ["Lainnya"]}, {"nama": "SMP PERINTIS YOGYAKARTA", "status": "Swasta", "terpilah": false, "jenis": [], "unitTerpilah": null, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 6.0, "bioKondisi": "Tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sebagian berjalan", "organik": [], "anorganik": []}, {"nama": "SMP STELLA DUCE 1", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "B3", "Lainnya"], "unitTerpilah": 23.0, "tps": true, "tpsKondisi": "Rusak ringan", "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 2000.0, "biopori": true, "bioLubang": 6.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Sedang", "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sebagian berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Pengepul"]}, {"nama": "SMP Muhammadiyah 1 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 35.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 5.0, "kompKapasitas": 20.0, "biopori": true, "bioLubang": 10.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Sedang", "maggot": true, "maggotKap": null, "bank": "Aktif", "pemilahan": "Belum berjalan", "organik": ["Komposting", "Biopori", "Maggot/BSF"], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMP MUHAMMADIYAH 10", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 6.0, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 3.0, "bioKondisi": "Tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": [], "anorganik": []}, {"nama": "SMP Muhammadiyah 2 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 69.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 200.0, "biopori": true, "bioLubang": 20.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sudah berjalan", "organik": [], "anorganik": []}, {"nama": "SMP Muhammadiyah 3 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Anorganik", "Residu"], "unitTerpilah": 72.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 2.0, "kompKapasitas": 20.0, "biopori": true, "bioLubang": 12.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Sedang", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "Smp Muhammadiyah 4 yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 3.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 100.0, "biopori": true, "bioLubang": 12.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sebagian berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Pengepul"]}, {"nama": "SMP Muhammadiyah 5 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 4.0, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 5.0, "bioKondisi": "Sebagian tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sebagian berjalan", "organik": ["Biopori"], "anorganik": ["Bank sampah"]}, {"nama": "SMP Muhammadiyah 6 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Anorganik", "Residu"], "unitTerpilah": 2.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 40.0, "biopori": true, "bioLubang": 1.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sudah berjalan", "organik": [], "anorganik": ["Pengepul"]}, {"nama": "SMP Muhammadiyah 7 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 30.0, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 10.0, "bioKondisi": "Sebagian tidak berfungsi", "bioUkuran": "Sedang", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": [], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMP TAMAN DEWASA IBU PAWIYATAN", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 10.0, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sebagian berjalan", "organik": [], "anorganik": []}, {"nama": "SMP TAMAN DEWASA JETIS YOGYAKARTA", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 2.0, "tps": true, "tpsKondisi": "Rusak ringan", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sebagian berjalan", "organik": [], "anorganik": ["Pengepul"]}, {"nama": "SMP Taman Dewasa Kumendaman Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 9.0, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sudah berjalan", "organik": [], "anorganik": []}, {"nama": "SMP 17 1 YOGYAKARTA", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 1.0, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sudah berjalan", "organik": ["Lainnya"], "anorganik": []}, {"nama": "SMP 17 2 YOGYAKARTA", "status": "Swasta", "terpilah": false, "jenis": [], "unitTerpilah": null, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Belum berjalan", "organik": [], "anorganik": []}, {"nama": "SMP KANISIUS GAYAM YOGYAKARTA", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 5.0, "tps": true, "tpsKondisi": "Rusak ringan", "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 100.0, "biopori": true, "bioLubang": 5.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sudah berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Pengepul"]}, {"nama": "SMP BOPKRI 1 YOGYAKARTA", "status": "Swasta", "terpilah": true, "jenis": ["Anorganik"], "unitTerpilah": 2.0, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Belum berjalan", "organik": [], "anorganik": []}, {"nama": "SMP BOPKRI 2 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 11.0, "tps": true, "tpsKondisi": "Rusak ringan", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sebagian berjalan", "organik": [], "anorganik": []}, {"nama": "SMP BOPKRI 3 YOGYAKARTA", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 1.0, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 3.0, "bioKondisi": "Tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sebagian berjalan", "organik": [], "anorganik": []}, {"nama": "SMP BOPKRI 5 YOGYAKARTA", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 1.0, "tps": false, "tpsKondisi": null, "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 6.0, "biopori": true, "bioLubang": 4.0, "bioKondisi": "Tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Belum berjalan", "organik": [], "anorganik": []}, {"nama": "SMP Budya Wacana", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 12.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 2.0, "kompKapasitas": 30.0, "biopori": true, "bioLubang": 2.0, "bioKondisi": "Sebagian tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sebagian berjalan", "organik": ["Komposting", "Biopori"], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMP Budi Luhur Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 2.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 50.0, "biopori": true, "bioLubang": 2.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sebagian berjalan", "organik": ["Komposting"], "anorganik": ["Bank sampah"]}, {"nama": "SMP Gotong Royong Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 3.0, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sebagian berjalan", "organik": ["Lainnya"], "anorganik": ["Pengepul"]}, {"nama": "SMP ISLAM YOGYAKARTA", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 1.0, "tps": true, "tpsKondisi": "Rusak berat", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sudah berjalan", "organik": [], "anorganik": ["Pengepul"]}, {"nama": "SMP Bhinneka Tunggal Ika Yogyakarta", "status": "Swasta", "terpilah": false, "jenis": [], "unitTerpilah": null, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Belum berjalan", "organik": [], "anorganik": []}, {"nama": "SMP IT ABU BAKAR YOGYAKARTA", "status": "Swasta", "terpilah": false, "jenis": [], "unitTerpilah": null, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Belum berjalan", "organik": [], "anorganik": []}, {"nama": "SMP INSTITUT INDONESIA", "status": "Swasta", "terpilah": false, "jenis": [], "unitTerpilah": null, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 6.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sudah berjalan", "organik": [], "anorganik": []}, {"nama": "SMP IT Masjid Syuhada", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 6.0, "tps": false, "tpsKondisi": null, "komposter": true, "kompJumlah": 5.0, "kompKapasitas": 75.0, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sebagian berjalan", "organik": ["Komposting", "Lainnya"], "anorganik": ["Pengepul"]}, {"nama": "SMP Pangudi Luhur 1 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 30.0, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sebagian berjalan", "organik": [], "anorganik": ["Bank sampah"]}, {"nama": "SMP KRISTEN KALAM KUDUS YOGYAKARTA", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 25.0, "tps": false, "tpsKondisi": null, "komposter": true, "kompJumlah": 1.0, "kompKapasitas": 500.0, "biopori": true, "bioLubang": 5.0, "bioKondisi": "Sebagian tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Belum berjalan", "organik": [], "anorganik": []}, {"nama": "SMP IT AL KHAIRAAT", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 2.0, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sebagian berjalan", "organik": [], "anorganik": ["Pengepul"]}, {"nama": "SMP ISLAM DARUSSALAM", "status": "Swasta", "terpilah": false, "jenis": [], "unitTerpilah": null, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Belum berjalan", "organik": [], "anorganik": []}, {"nama": "SMP Labschool UNY", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik"], "unitTerpilah": 2.0, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": [], "anorganik": ["Lainnya"]}, {"nama": "SMP IT Bina Anak Sholeh", "status": "Swasta", "terpilah": true, "jenis": ["Anorganik"], "unitTerpilah": 2.0, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 4.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sudah berjalan", "organik": ["Biopori"], "anorganik": ["Pengepul"]}, {"nama": "SMP PIRI 1 YOGYAKARTA", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 5.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 3.0, "kompKapasitas": 50.0, "biopori": true, "bioLubang": 20.0, "bioKondisi": "Sebagian tidak berfungsi", "bioUkuran": "Kecil", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sudah berjalan", "organik": ["Komposting"], "anorganik": ["Pengepul"]}, {"nama": "SMP Muhammadiyah 9 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Residu", "Lainnya"], "unitTerpilah": 12.0, "tps": true, "tpsKondisi": "Rusak berat", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 3.0, "bioKondisi": "Sebagian tidak berfungsi", "bioUkuran": "Besar", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sebagian berjalan", "organik": [], "anorganik": ["Bank sampah"]}, {"nama": "SMP Muhammadiyah 8 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 2.0, "tps": false, "tpsKondisi": null, "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 4.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Sedang", "maggot": false, "maggotKap": null, "bank": "Aktif", "pemilahan": "Sebagian berjalan", "organik": ["Biopori"], "anorganik": ["Bank sampah", "Pengepul"]}, {"nama": "SMP Stella Duce 2 Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "Residu"], "unitTerpilah": 17.0, "tps": true, "tpsKondisi": "Baik", "komposter": true, "kompJumlah": 3.0, "kompKapasitas": 100.0, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sudah berjalan", "organik": ["Komposting"], "anorganik": ["Pengepul"]}, {"nama": "SMP Berbudi Yogyakarta", "status": "Swasta", "terpilah": true, "jenis": ["Anorganik"], "unitTerpilah": 3.0, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": true, "bioLubang": 10.0, "bioKondisi": "Berfungsi baik", "bioUkuran": "Sedang", "maggot": false, "maggotKap": null, "bank": "Tidak aktif", "pemilahan": "Sebagian berjalan", "organik": ["Biopori"], "anorganik": ["Pengepul"]}, {"nama": "SMPIT Abu Bakar Yogyakarta Fullday School", "status": "Swasta", "terpilah": true, "jenis": ["Organik", "Anorganik", "B3"], "unitTerpilah": 3.0, "tps": true, "tpsKondisi": "Baik", "komposter": false, "kompJumlah": null, "kompKapasitas": null, "biopori": false, "bioLubang": null, "bioKondisi": null, "bioUkuran": null, "maggot": false, "maggotKap": null, "bank": "Belum ada", "pemilahan": "Sudah berjalan", "organik": ["Lainnya"], "anorganik": ["Pengepul"]}];
+  const GR = ['Negeri', 'Swasta'];
+  const GCOL = { Negeri: 'var(--negeri)', Swasta: 'var(--swasta)' };
+  const rowsOf = g => g === 'Semua' ? DATA : DATA.filter(r => r.status === g);
+  const CNT = { Negeri: rowsOf('Negeri').length, Swasta: rowsOf('Swasta').length, Semua: DATA.length };
+  const cnt = (g, fn) => rowsOf(g).filter(fn).length;
+  const ratio = (a, b) => b ? 100 * a / b : 0;
+  const P = (a, b) => Math.round(ratio(a, b)) + '%';
+  const nf = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 });
+  const sum = (g, fn) => rowsOf(g).reduce((s, r) => s + (fn(r) || 0), 0);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const median = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+  /* ---------- tooltip ---------- */
+  const tipEl = document.getElementById('tip');
+  function showTip(x, y, title, rows) {
+    tipEl.replaceChildren();
+    tipEl.append(el('div', 'tt-title', title));
+    rows.forEach(r => {
+      const d = el('div', 'tt-row'), k = el('span', 'tt-key');
+      k.style.background = r.color;
+      d.append(k, el('strong', '', r.value), el('span', '', r.label));
+      tipEl.append(d);
+    });
+    tipEl.hidden = false;
+    const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    let left = Math.min(x + 14, window.innerWidth - w - 8);
+    let top = y + 16;
+    if (top + h > window.innerHeight - 8) top = y - h - 12;
+    tipEl.style.left = Math.max(8, left) + 'px';
+    tipEl.style.top = Math.max(8, top) + 'px';
+  }
+  const hideTip = () => { tipEl.hidden = true; };
+  function attachTip(node, title, rows) {
+    node.tabIndex = 0;
+    node.addEventListener('pointermove', e => showTip(e.clientX, e.clientY, title, rows));
+    node.addEventListener('pointerleave', hideTip);
+    node.addEventListener('focus', () => { const b = node.getBoundingClientRect(); showTip(b.left + 20, b.top + b.height / 2, title, rows); });
+    node.addEventListener('blur', hideTip);
+  }
+
+  /* ---------- legend ---------- */
+  function legend(items) {
+    const l = el('div', 'legend');
+    items.forEach(it => { const s = el('span'); const i = el('i'); i.style.background = it.color; s.append(i, document.createTextNode(it.label)); l.append(s); });
+    return l;
+  }
+  const groupLegend = () => legend(GR.map(g => ({ color: GCOL[g], label: `${g} (${CNT[g]} sekolah)` })));
+
+  /* ---------- grouped horizontal bars (negeri vs swasta) ---------- */
+  function groupedBars(host, items, aria) {
+    host.replaceChildren(groupLegend());
+    const chart = el('div', 'gchart'); chart.setAttribute('role', 'img'); chart.setAttribute('aria-label', aria);
+    const rows = el('div', 'grows');
+    const grid = el('div', 'ggrid');
+    [0, 25, 50, 75, 100].forEach(t => { const i = el('i'); i.style.left = t + '%'; grid.append(i); });
+    rows.append(grid);
+    items.forEach(it => {
+      const r = el('div', 'grow');
+      r.append(el('div', 'glabel', it.label));
+      const bars = el('div', 'bars');
+      const tipRows = [];
+      GR.forEach(g => {
+        const v = it.vals[g], p = ratio(v.n, v.d);
+        const tr = el('div', 'btrack');
+        const f = el('div', 'fill'); f.style.width = p + '%'; f.style.background = GCOL[g];
+        const lb = el('div', 'blabel'); lb.style.left = p + '%';
+        lb.append(document.createTextNode(Math.round(p) + '%'), el('em', '', `${v.n}/${v.d}`));
+        tr.append(f, lb); bars.append(tr);
+        tipRows.push({ color: GCOL[g], value: Math.round(p) + '%', label: `${v.n} dari ${v.d} sekolah ${g.toLowerCase()}` });
+      });
+      r.append(bars);
+      attachTip(r, it.label, tipRows);
+      rows.append(r);
+    });
+    chart.append(rows);
+    const ax = el('div', 'gaxis');
+    [0, 25, 50, 75, 100].forEach(t => { const s = el('span', '', t + '%'); s.style.left = t + '%'; ax.append(s); });
+    chart.append(ax);
+    host.append(chart);
+  }
+
+  /* ---------- stacked 100% bars ---------- */
+  const SEGS = [];
+  function stacked(host, cats, rows, aria) {
+    host.append(legend(cats.map(c => ({ color: c.color, label: c.label }))));
+    const chart = el('div', 'schart'); chart.setAttribute('role', 'img'); chart.setAttribute('aria-label', aria);
+    rows.forEach(r => {
+      const row = el('div', 'srow');
+      const lab = el('div', 'slabel', r.group); lab.append(el('small', '', r.sub));
+      const st = el('div', 'stack');
+      cats.forEach(c => {
+        const n = r.counts[c.key] || 0; if (!n) return;
+        const s = el('div', 'seg'); s.style.flex = `${n} 1 0`; s.style.background = c.color; s.style.color = c.ink;
+        s.append(el('span', '', Math.round(ratio(n, r.total)) + '%'));
+        attachTip(s, `${r.group} · ${c.label}`, [{ color: c.color, value: `${n} sekolah`, label: `${Math.round(ratio(n, r.total))}% dari ${r.total}` }]);
+        st.append(s); SEGS.push(s);
+      });
+      row.append(lab, st); chart.append(row);
+    });
+    const ax = el('div', 'saxis');
+    [0, 25, 50, 75, 100].forEach(t => { const s = el('span', '', t + '%'); s.style.left = t + '%'; ax.append(s); });
+    chart.append(ax);
+    host.append(chart);
+  }
+  function fitLabels() {
+    SEGS.forEach(s => { const sp = s.firstChild; sp.style.visibility = 'visible'; if (sp.offsetWidth + 14 > s.clientWidth) sp.style.visibility = 'hidden'; });
+  }
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(fitLabels, 80); });
+
+  /* ---------- summary table ---------- */
+  function miniTable(rows) {
+    const t = el('table', 'sumtable');
+    const h = el('tr'); h.append(el('th', '', ''));
+    ['Negeri', 'Swasta', 'Semua'].forEach(g => h.append(el('th', '', `${g} (${CNT[g]})`)));
+    const thead = el('thead'); thead.append(h); t.append(thead);
+    const tb = el('tbody');
+    rows.forEach(r => { const tr = el('tr'); r.forEach(c => tr.append(el('td', '', c))); tb.append(tr); });
+    t.append(tb); return t;
+  }
+  const cntCell = (g, fn) => { const n = cnt(g, fn); return `${n} (${P(n, CNT[g])})`; };
+  const cntRow = (label, fn) => [label, cntCell('Negeri', fn), cntCell('Swasta', fn), cntCell('Semua', fn)];
+
+  /* ---------- skeleton helpers ---------- */
+  const OK = '#ffffff', DARK = '#0b0b0b';
+  const C = {
+    good: { color: 'var(--good)', ink: OK }, warn: { color: 'var(--warn)', ink: DARK }, crit: { color: 'var(--crit)', ink: OK },
+    none: { color: 'var(--neutral)', ink: 'var(--ink)' },
+    o1: { color: 'var(--ord-1)', ink: DARK }, o2: { color: 'var(--ord-2)', ink: DARK }, o3: { color: 'var(--ord-3)', ink: OK }, o4: { color: 'var(--ord-4)', ink: OK }
+  };
+  const cat = (key, label, c) => ({ key, label, color: c.color, ink: c.ink });
+  function stackRows(fnKey, denomFn, subFn) {
+    return GR.map(g => {
+      const R = rowsOf(g).filter(denomFn); const counts = {};
+      R.forEach(r => { const k = fnKey(r); counts[k] = (counts[k] || 0) + 1; });
+      return { group: g, sub: subFn(R.length), total: R.length, counts };
+    });
+  }
+  const colWrap = (title, node) => { const w = el('div'); w.append(el('h3', '', title)); w.append(node); return w; };
+  function section(title, finding, leftNodes, rightNodes) {
+    const c = el('section', 'card');
+    const hd = el('div', 'card-head'); hd.append(el('h2', '', title), el('p', '', finding)); c.append(hd);
+    const b = el('div', 'body');
+    const l = el('div', 'stackcol'); leftNodes.forEach(n => l.append(n));
+    const r = el('div', 'stackcol'); rightNodes.forEach(n => r.append(n));
+    b.append(l, r); c.append(b);
+    document.getElementById('sections').append(c);
+  }
+
+  /* ---------- header: komposisi + KPI ---------- */
+  (function () {
+    const host = document.getElementById('compo');
+    const thin = el('div', 'thin');
+    GR.forEach(g => { const s = el('span'); s.style.flex = `${CNT[g]} 1 0`; s.style.background = GCOL[g]; thin.append(s); });
+    host.append(el('p', '', `${CNT.Semua} sekolah sudah mengisi data`), thin);
+    const lg = legend(GR.map(g => ({ color: GCOL[g], label: `${g}: ${CNT[g]} sekolah (${P(CNT[g], CNT.Semua)})` })));
+    host.append(lg);
+  })();
+
+  const IND = [
+    { label: 'Tempat sampah terpilah', note: 'punya tempat sampah terpilah', fn: r => r.terpilah },
+    { label: 'Tempat penampungan sementara (TPS)', note: 'punya TPS', fn: r => r.tps },
+    { label: 'Komposter', note: 'punya komposter', fn: r => r.komposter },
+    { label: 'Biopori', note: 'punya biopori', fn: r => r.biopori },
+    { label: 'Maggot / BSF', note: 'punya pengolahan maggot/BSF', fn: r => r.maggot },
+    { label: 'Bank sampah aktif', note: 'bank sampahnya aktif', fn: r => r.bank === 'Aktif' },
+    { label: 'Pemilahan sudah berjalan', note: 'pemilahannya sudah berjalan', fn: r => r.pemilahan === 'Sudah berjalan' },
+    { label: 'Pengolahan sampah organik', note: 'mengolah sampah organik', fn: r => r.organik.length > 0 },
+    { label: 'Pengelolaan sampah anorganik', note: 'mengelola sampah anorganik', fn: r => r.anorganik.length > 0 }
+  ];
+  (function () {
+    const host = document.getElementById('kpis');
+    IND.forEach(ind => {
+      const k = el('div', 'kpi');
+      const n = cnt('Semua', ind.fn);
+      k.append(el('div', 'k-label', ind.label), el('div', 'k-value', P(n, CNT.Semua)), el('div', 'k-note', `${n} dari ${CNT.Semua} sekolah ${ind.note}`));
+      const sp = el('div', 'k-split');
+      GR.forEach(g => { const d = el('div'); const dt = el('span', 'dot'); dt.style.background = GCOL[g]; d.append(dt, document.createTextNode(g), el('strong', '', P(cnt(g, ind.fn), CNT[g]))); sp.append(d); });
+      k.append(sp); host.append(k);
+    });
+  })();
+
+  /* ---------- overview ---------- */
+  (function () {
+    const items = IND.map(ind => ({ label: ind.label, vals: { Negeri: { n: cnt('Negeri', ind.fn), d: CNT.Negeri }, Swasta: { n: cnt('Swasta', ind.fn), d: CNT.Swasta } } }));
+    groupedBars(document.getElementById('overviewChart'), items, 'Persentase sekolah negeri dan swasta yang memiliki tiap sarana');
+    const t = el('table', 'sumtable');
+    const h = el('tr'); h.append(el('th', '', 'Sarana'));
+    ['Negeri', 'Swasta', 'Semua'].forEach(g => h.append(el('th', '', `${g} (${CNT[g]})`)));
+    const th = el('thead'); th.append(h); t.append(th);
+    const tb = el('tbody');
+    IND.forEach(ind => { const tr = el('tr'); tr.append(el('td', '', ind.label), el('td', '', cntCell('Negeri', ind.fn)), el('td', '', cntCell('Swasta', ind.fn)), el('td', '', cntCell('Semua', ind.fn))); tb.append(tr); });
+    t.append(tb); document.getElementById('overviewTable').append(t);
+    const btn = document.getElementById('toggleOverview');
+    btn.addEventListener('click', () => {
+      const showT = document.getElementById('overviewTable').hidden;
+      document.getElementById('overviewTable').hidden = !showT;
+      document.getElementById('overviewChart').hidden = showT;
+      btn.textContent = showT ? 'Lihat grafik' : 'Lihat tabel'; btn.setAttribute('aria-pressed', String(showT));
+    });
+  })();
+
+  /* ---------- 1. tempat sampah terpilah ---------- */
+  (function () {
+    const types = ['Organik', 'Anorganik', 'Residu', 'B3', 'Lainnya'];
+    const items = types.map(j => ({ label: j, vals: Object.fromEntries(GR.map(g => [g, { n: cnt(g, r => r.terpilah && r.jenis.includes(j)), d: cnt(g, r => r.terpilah) }])) }));
+    const host = el('div'); groupedBars(host, items, 'Jenis tempat sampah terpilah yang tersedia, negeri dan swasta');
+    const avg = g => { const n = cnt(g, r => r.terpilah && r.unitTerpilah != null); return n ? nf.format(sum(g, r => r.terpilah ? r.unitTerpilah : 0) / n) : '-'; };
+    const tbl = miniTable([
+      cntRow('Punya tempat sampah terpilah', r => r.terpilah),
+      ['Total wadah terpilah (unit)', ...['Negeri', 'Swasta', 'Semua'].map(g => nf.format(sum(g, r => r.terpilah ? r.unitTerpilah : 0)))],
+      ['Rata-rata unit per sekolah yang punya', avg('Negeri'), avg('Swasta'), avg('Semua')]
+    ]);
+    const cap = el('p', 'cap', 'Grafik jenis wadah dihitung dari sekolah yang punya tempat sampah terpilah (14 negeri, 37 swasta). Lainnya: wadah khusus kertas atau botol plastik.');
+    const right = el('div'); right.append(tbl, cap);
+    section('Tempat sampah terpilah',
+      '51 dari 60 sekolah (85%) sudah punya tempat sampah terpilah. Organik dan anorganik hampir selalu ada, tetapi wadah residu jauh lebih jarang di sekolah swasta (35%) dibanding negeri (71%).',
+      [colWrap('Jenis wadah yang tersedia', host)], [colWrap('Ringkasan angka', right)]);
+  })();
+
+  /* ---------- 2. TPS ---------- */
+  (function () {
+    const cats = [cat('Baik', 'Baik', C.good), cat('Rusak ringan', 'Rusak ringan', C.warn), cat('Rusak berat', 'Rusak berat', C.crit), cat('Tidak ada', 'Tidak ada TPS', C.none)];
+    const host = el('div');
+    stacked(host, cats, stackRows(r => r.tps ? r.tpsKondisi : 'Tidak ada', () => true, n => `dari ${n} sekolah`), 'Kondisi TPS di sekolah negeri dan swasta');
+    const tbl = miniTable([
+      cntRow('Punya TPS', r => r.tps),
+      cntRow('TPS kondisi baik', r => r.tps && r.tpsKondisi === 'Baik'),
+      cntRow('TPS perlu perbaikan (rusak ringan/berat)', r => r.tps && r.tpsKondisi !== 'Baik')
+    ]);
+    section('Tempat penampungan sementara (TPS)',
+      '38 dari 60 sekolah (63%) punya TPS, hampir sama di negeri (63%) dan swasta (64%). Dari 38 TPS itu, 28 berkondisi baik, 8 rusak ringan, dan 2 rusak berat.',
+      [colWrap('Ketersediaan dan kondisi', host)], [colWrap('Ringkasan angka', tbl)]);
+  })();
+
+  /* ---------- 3. komposter ---------- */
+  (function () {
+    const bin = r => r.kompJumlah == null ? 'x' : r.kompJumlah <= 1 ? '1' : r.kompJumlah === 2 ? '2' : r.kompJumlah <= 4 ? '3-4' : '5+';
+    const cats = [cat('1', '1 unit', C.o1), cat('2', '2 unit', C.o2), cat('3-4', '3 sampai 4 unit', C.o3), cat('5+', '5 unit atau lebih', C.o4), cat('x', 'Jumlah tidak diisi', C.none)];
+    const host = el('div');
+    stacked(host, cats, stackRows(bin, r => r.komposter, n => `dari ${n} sekolah yang punya`), 'Jumlah unit komposter per sekolah');
+    const med = g => { const m = median(rowsOf(g).filter(r => r.komposter && r.kompKapasitas != null).map(r => r.kompKapasitas)); return m == null ? '-' : nf.format(m); };
+    const tbl = miniTable([
+      cntRow('Punya komposter', r => r.komposter),
+      ['Total komposter (unit)', ...['Negeri', 'Swasta', 'Semua'].map(g => nf.format(sum(g, r => r.komposter ? r.kompJumlah : 0)))],
+      ['Kapasitas median per sekolah (liter/kg)', med('Negeri'), med('Swasta'), med('Semua')]
+    ]);
+    const cap = el('p', 'cap', 'Total unit tidak mencakup SMPN 8 yang tidak mengisi jumlah. Kapasitas memakai median karena satuan liter dan kg bercampur dan satu sekolah mengisi 2.000.');
+    const right = el('div'); right.append(tbl, cap);
+    section('Komposter',
+      'Komposter ada di 88% sekolah negeri tetapi hanya 36% sekolah swasta. Sebagian besar sekolah swasta yang punya hanya memiliki 1 sampai 2 unit.',
+      [colWrap('Jumlah unit per sekolah', host)], [colWrap('Ringkasan angka', right)]);
+  })();
+
+  /* ---------- 4. biopori ---------- */
+  (function () {
+    const hk = el('div');
+    stacked(hk, [cat('Berfungsi baik', 'Berfungsi baik', C.good), cat('Sebagian tidak berfungsi', 'Sebagian tidak berfungsi', C.warn), cat('Tidak berfungsi', 'Tidak berfungsi', C.crit)],
+      stackRows(r => r.bioKondisi, r => r.biopori, n => `dari ${n} sekolah yang punya`), 'Kondisi biopori');
+    const hu = el('div');
+    stacked(hu, [cat('Kecil', 'Kecil', C.o1), cat('Sedang', 'Sedang', C.o3), cat('Besar', 'Besar', C.o4)],
+      stackRows(r => r.bioUkuran, r => r.biopori, n => `dari ${n} sekolah yang punya`), 'Ukuran biopori');
+    const avg = g => { const n = cnt(g, r => r.biopori); return n ? nf.format(sum(g, r => r.biopori ? r.bioLubang : 0) / n) : '-'; };
+    const tbl = miniTable([
+      cntRow('Punya biopori', r => r.biopori),
+      ['Total lubang biopori', ...['Negeri', 'Swasta', 'Semua'].map(g => nf.format(sum(g, r => r.biopori ? r.bioLubang : 0)))],
+      ['Rata-rata lubang per sekolah yang punya', avg('Negeri'), avg('Swasta'), avg('Semua')],
+      cntRow('Biopori berfungsi baik', r => r.biopori && r.bioKondisi === 'Berfungsi baik')
+    ]);
+    section('Biopori',
+      'Biopori ada di 15 dari 16 sekolah negeri (94%), sedangkan di swasta baru 55%. Secara keseluruhan 39 sekolah (65%) punya biopori, dan 16 di antaranya tidak atau hanya sebagian berfungsi.',
+      [colWrap('Kondisi', hk), colWrap('Ukuran', hu)], [colWrap('Ringkasan angka', tbl)]);
+  })();
+
+  /* ---------- 5. maggot / BSF ---------- */
+  (function () {
+    const tiles = el('div', 'tiles');
+    [['Semua', 'Semua sekolah'], ['Negeri', 'Sekolah negeri'], ['Swasta', 'Sekolah swasta']].forEach(([g, lab]) => {
+      const t = el('div', 'tile'); const n = cnt(g, r => r.maggot);
+      t.append(el('div', 'k-value', P(n, CNT[g])), el('div', 'k-label', lab), el('div', 'k-note', `${n} dari ${CNT[g]} sekolah`)); tiles.append(t);
+    });
+    const ul = el('ul', 'list');
+    DATA.filter(r => r.maggot).forEach(r => ul.append(el('li', '', `${r.nama} (${r.status.toLowerCase()}): ${r.maggotKap != null ? 'kapasitas ' + nf.format(r.maggotKap) + ' kg/hari' : 'kapasitas tidak diisi'}`)));
+    const box = el('div'); box.append(tiles, el('h3', '', 'Sekolah yang sudah punya'), ul);
+    box.lastChild.previousSibling.style.marginTop = '18px';
+    section('Maggot / BSF',
+      'Pengolahan maggot/BSF masih sangat jarang: hanya 2 dari 60 sekolah (3%), satu negeri dan satu swasta.',
+      [box], []);
+  })();
+
+  /* ---------- 6. bank sampah ---------- */
+  (function () {
+    const host = el('div');
+    stacked(host, [cat('Aktif', 'Aktif', C.good), cat('Tidak aktif', 'Tidak aktif', C.warn), cat('Belum ada', 'Belum ada', C.none)],
+      stackRows(r => r.bank, () => true, n => `dari ${n} sekolah`), 'Status bank sampah');
+    const tbl = miniTable([
+      cntRow('Bank sampah aktif', r => r.bank === 'Aktif'),
+      cntRow('Bank sampah tidak aktif', r => r.bank === 'Tidak aktif'),
+      cntRow('Belum ada bank sampah', r => r.bank === 'Belum ada')
+    ]);
+    section('Bank sampah',
+      'Bank sampah aktif di 75% sekolah negeri tetapi hanya 27% sekolah swasta, dan 45% sekolah swasta belum punya sama sekali.',
+      [colWrap('Status bank sampah', host)], [colWrap('Ringkasan angka', tbl)]);
+  })();
+
+  /* ---------- 7. pemilahan sampah ---------- */
+  (function () {
+    const host = el('div');
+    stacked(host, [cat('Sudah berjalan', 'Sudah berjalan', C.good), cat('Sebagian berjalan', 'Sebagian berjalan', C.warn), cat('Belum berjalan', 'Belum berjalan', C.crit)],
+      stackRows(r => r.pemilahan, () => true, n => `dari ${n} sekolah`), 'Status pemilahan sampah');
+    const tbl = miniTable([
+      cntRow('Pemilahan sudah berjalan', r => r.pemilahan === 'Sudah berjalan'),
+      cntRow('Sebagian berjalan', r => r.pemilahan === 'Sebagian berjalan'),
+      cntRow('Belum berjalan', r => r.pemilahan === 'Belum berjalan'),
+      cntRow('Punya tempat sampah terpilah tetapi pemilahan belum berjalan', r => r.terpilah && r.pemilahan === 'Belum berjalan')
+    ]);
+    const cap = el('p', 'cap', 'Status adalah penilaian sekolah sendiri atas pelaksanaan pemilahan, terpisah dari ada tidaknya tempat sampah terpilah.');
+    const right = el('div'); right.append(tbl, cap);
+    section('Pemilahan sampah',
+      'Pemilahan sudah berjalan di 23 dari 60 sekolah (38%). Sekolah negeri sedikit lebih maju (44%) dibanding swasta (36%), dan sekolah swasta lebih sering belum memulai (20% dibanding 13% negeri).',
+      [colWrap('Status pelaksanaan', host)], [colWrap('Ringkasan angka', right)]);
+  })();
+
+  /* ---------- 8. pengolahan organik ---------- */
+  (function () {
+    const has = k => r => r.organik.includes(k);
+    const defs = [['Komposting', has('Komposting')], ['Biopori', has('Biopori')], ['Maggot/BSF', has('Maggot/BSF')], ['Lainnya', has('Lainnya')], ['Belum ada pengolahan', r => r.organik.length === 0]];
+    const items = defs.map(([label, fn]) => ({ label, vals: Object.fromEntries(GR.map(g => [g, { n: cnt(g, fn), d: CNT[g] }])) }));
+    const host = el('div'); groupedBars(host, items, 'Cara pengolahan sampah organik di sekolah negeri dan swasta');
+    const tbl = miniTable([
+      cntRow('Sudah mengolah sampah organik', r => r.organik.length > 0),
+      cntRow('Memakai lebih dari satu cara', r => r.organik.length > 1),
+      cntRow('Belum ada pengolahan', r => r.organik.length === 0)
+    ]);
+    const cap = el('p', 'cap', 'Satu sekolah bisa memakai beberapa cara, jadi persentase antar cara tidak dijumlahkan. Lainnya: lodong sisa makanan (Losida/Lodisa), pupuk, dan pakan ternak.');
+    const right = el('div'); right.append(tbl, cap);
+    section('Pengolahan sampah organik',
+      '35 dari 60 sekolah (58%) sudah mengolah sampah organik, terbanyak lewat komposting dan biopori (masing-masing 22 sekolah). Selisih negeri dan swasta besar: 94% dibanding 45%, dan 24 dari 25 sekolah yang belum mengolah adalah swasta.',
+      [colWrap('Cara pengolahan', host)], [colWrap('Ringkasan angka', right)]);
+  })();
+
+  /* ---------- 9. pengelolaan anorganik ---------- */
+  (function () {
+    const has = k => r => r.anorganik.includes(k);
+    const defs = [['Bank sampah', has('Bank sampah')], ['Kerja sama dengan pengepul', has('Pengepul')], ['Lainnya', has('Lainnya')], ['Belum ada pengelolaan', r => r.anorganik.length === 0]];
+    const items = defs.map(([label, fn]) => ({ label, vals: Object.fromEntries(GR.map(g => [g, { n: cnt(g, fn), d: CNT[g] }])) }));
+    const host = el('div'); groupedBars(host, items, 'Cara pengelolaan sampah anorganik di sekolah negeri dan swasta');
+    const tbl = miniTable([
+      cntRow('Sudah mengelola sampah anorganik', r => r.anorganik.length > 0),
+      cntRow('Bank sampah dan pengepul sekaligus', r => r.anorganik.includes('Bank sampah') && r.anorganik.includes('Pengepul')),
+      cntRow('Hanya kerja sama pengepul', r => r.anorganik.length === 1 && r.anorganik[0] === 'Pengepul'),
+      cntRow('Belum ada pengelolaan', r => r.anorganik.length === 0)
+    ]);
+    const cap = el('p', 'cap', 'Satu sekolah bisa memakai beberapa cara. Lainnya: diambil pengelola RT dan kerja sama dengan pihak ketiga. Sekolah yang menjawab tidak diolah dan langsung diangkut dihitung belum ada pengelolaan.');
+    const right = el('div'); right.append(tbl, cap);
+    section('Pengelolaan sampah anorganik',
+      '42 dari 60 sekolah (70%) sudah mengelola sampah anorganik. Pengepul (53%) lebih umum daripada bank sampah (33%). Sekolah negeri condong ke bank sampah (69% dibanding 20% swasta), sedangkan 16 dari 27 sekolah swasta yang mengelola hanya lewat pengepul.',
+      [colWrap('Cara pengelolaan', host)], [colWrap('Ringkasan angka', right)]);
+  })();
+
+  /* ---------- tabel per sekolah ---------- */
+  (function () {
+    const cols = ['Sekolah', 'Status', 'Tempat sampah terpilah', 'TPS', 'Komposter', 'Biopori', 'Maggot/BSF', 'Bank sampah', 'Pemilahan', 'Pengolahan organik', 'Pengelolaan anorganik'];
+    const tbl = document.getElementById('dtable');
+    const hd = el('thead'), hr = el('tr'); cols.forEach(c => hr.append(el('th', '', c))); hd.append(hr); tbl.append(hd);
+    const body = el('tbody'); tbl.append(body);
+    const chip = (text, color) => { const s = el('span', color ? 'chip' : 'chip none'); if (color) { const d = el('i', 'dot'); d.style.background = color; s.append(d); } s.append(document.createTextNode(text)); return s; };
+    const gap = {
+      terpilah: r => !r.terpilah, tps: r => !r.tps, komposter: r => !r.komposter, biopori: r => !r.biopori, maggot: r => !r.maggot, bank: r => r.bank !== 'Aktif',
+      pemilahan: r => r.pemilahan !== 'Sudah berjalan', organik: r => r.organik.length === 0, anorganik: r => r.anorganik.length === 0
+    };
+    function render() {
+      const fs = document.getElementById('fStatus').value, fg = document.getElementById('fGap').value, q = document.getElementById('fSearch').value.trim().toLowerCase();
+      body.replaceChildren();
+      const list = DATA.filter(r => (!fs || r.status === fs) && (!fg || gap[fg](r)) && (!q || r.nama.toLowerCase().includes(q)))
+        .sort((a, b) => a.nama.localeCompare(b.nama, 'id', { numeric: true }));
+      list.forEach(r => {
+        const tr = el('tr');
+        const td = (n) => { const t = el('td'); t.append(n); tr.append(t); return t; };
+        td(document.createTextNode(r.nama)).className = 'name';
+        td(chip(r.status, GCOL[r.status]));
+        td(r.terpilah ? chip('Ada' + (r.jenis.length ? ' (' + r.jenis.join(', ') + ')' : ''), 'var(--good)') : chip('Tidak ada'));
+        td(r.tps ? chip(r.tpsKondisi, r.tpsKondisi === 'Baik' ? 'var(--good)' : r.tpsKondisi === 'Rusak ringan' ? 'var(--warn)' : 'var(--crit)') : chip('Tidak ada'));
+        td(r.komposter ? chip(r.kompJumlah != null ? nf.format(r.kompJumlah) + ' unit' : 'Ada (jumlah kosong)', 'var(--good)') : chip('Tidak ada'));
+        td(r.biopori ? chip(nf.format(r.bioLubang || 0) + ' lubang, ' + (r.bioKondisi || '').toLowerCase(), r.bioKondisi === 'Berfungsi baik' ? 'var(--good)' : r.bioKondisi === 'Tidak berfungsi' ? 'var(--crit)' : 'var(--warn)') : chip('Tidak ada'));
+        td(r.maggot ? chip('Ada', 'var(--good)') : chip('Tidak ada'));
+        td(r.bank === 'Aktif' ? chip('Aktif', 'var(--good)') : r.bank === 'Tidak aktif' ? chip('Tidak aktif', 'var(--warn)') : chip('Belum ada'));
+        td(r.pemilahan === 'Sudah berjalan' ? chip('Sudah berjalan', 'var(--good)') : r.pemilahan === 'Sebagian berjalan' ? chip('Sebagian berjalan', 'var(--warn)') : chip('Belum berjalan', 'var(--crit)'));
+        td(r.organik.length ? chip(r.organik.join(', '), 'var(--good)') : chip('Belum ada'));
+        td(r.anorganik.length ? chip(r.anorganik.join(', '), 'var(--good)') : chip('Belum ada'));
+        body.append(tr);
+      });
+      document.getElementById('tcount').textContent = `Menampilkan ${list.length} dari ${DATA.length} sekolah`;
+    }
+    ['fStatus', 'fGap'].forEach(id => document.getElementById(id).addEventListener('change', render));
+    document.getElementById('fSearch').addEventListener('input', render);
+    render();
+  })();
+
+  fitLabels();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitLabels);
+})();
+</script>
+</body>
+</html>
