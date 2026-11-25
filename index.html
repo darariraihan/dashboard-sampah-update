@@ -74,6 +74,17 @@ button, select, input { font: inherit; color: var(--ink); }
 .compo .thin span:last-child { border-radius: 0 4px 4px 0; }
 .compo .legend { margin-top: 8px; }
 
+/* filter KPI */
+.segwrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.seglabel { color: var(--ink2); font-size: 13px; }
+.seg-group { display: inline-flex; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; background: var(--surface); max-width: 100%; }
+.segbtn { background: transparent; border: 0; padding: 7px 14px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.segbtn + .segbtn { border-left: 1px solid var(--axis); }
+.segbtn:hover { background: var(--wash); }
+.segbtn[aria-pressed="true"] { background: var(--ink); color: var(--plane); font-weight: 600; }
+.segbtn:focus-visible { outline-offset: -2px; }
+@media (max-width: 480px) { .segbtn { padding: 7px 10px; font-size: 12.5px; } }
+
 /* KPI */
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
 .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -196,7 +207,11 @@ button, select, input { font: inherit; color: var(--ink); }
     <div class="compo" id="compo"></div>
   </header>
 
-  <section class="kpis" id="kpis" aria-label="Ringkasan cakupan"></section>
+  <div class="segwrap">
+    <span class="seglabel" id="kpiFilterLabel">Tampilkan:</span>
+    <div class="seg-group" id="kpiFilter" role="group" aria-labelledby="kpiFilterLabel"></div>
+  </div>
+  <section class="kpis" id="kpis" aria-live="polite"></section>
 
   <section class="card" id="ringkasan">
     <div class="card-head"><h2>Temuan utama</h2></div>
@@ -441,14 +456,37 @@ button, select, input { font: inherit; color: var(--ink); }
   ];
   (function () {
     const host = document.getElementById('kpis');
-    IND.forEach(ind => {
-      const k = el('div', 'kpi');
-      const n = cnt('Semua', ind.fn);
-      k.append(el('div', 'k-label', ind.label), el('div', 'k-value', P(n, CNT.Semua)), el('div', 'k-note', `${n} dari ${CNT.Semua} sekolah ${ind.note}`));
-      const sp = el('div', 'k-split');
-      GR.forEach(g => { const d = el('div'); const dt = el('span', 'dot'); dt.style.background = GCOL[g]; d.append(dt, document.createTextNode(g), el('strong', '', P(cnt(g, ind.fn), CNT[g]))); sp.append(d); });
-      k.append(sp); host.append(k);
+    const seg = document.getElementById('kpiFilter');
+    const LABEL = { Semua: 'Keseluruhan', Negeri: 'Negeri', Swasta: 'Swasta' };
+    const NOUN = { Semua: 'sekolah', Negeri: 'sekolah negeri', Swasta: 'sekolah swasta' };
+    function renderKpis(sel) {
+      host.replaceChildren();
+      IND.forEach(ind => {
+        const k = el('div', 'kpi');
+        const n = cnt(sel, ind.fn);
+        k.append(el('div', 'k-label', ind.label), el('div', 'k-value', P(n, CNT[sel])), el('div', 'k-note', `${n} dari ${CNT[sel]} ${NOUN[sel]} ${ind.note}`));
+        const sp = el('div', 'k-split');
+        const rowsShown = sel === 'Semua' ? GR : ['Semua'];
+        rowsShown.forEach(g => {
+          const d = el('div'); const dt = el('span', 'dot');
+          dt.style.background = g === 'Semua' ? 'var(--neutral)' : GCOL[g];
+          d.append(dt, document.createTextNode(g === 'Semua' ? 'Keseluruhan' : g), el('strong', '', P(cnt(g, ind.fn), CNT[g])));
+          sp.append(d);
+        });
+        k.append(sp); host.append(k);
+      });
+      host.setAttribute('aria-label', `Ringkasan cakupan: ${LABEL[sel].toLowerCase()}`);
+    }
+    ['Semua', 'Negeri', 'Swasta'].forEach(g => {
+      const b = el('button', 'segbtn', `${LABEL[g]} (${CNT[g]})`);
+      b.type = 'button'; b.dataset.g = g; b.setAttribute('aria-pressed', String(g === 'Semua'));
+      b.addEventListener('click', () => {
+        seg.querySelectorAll('.segbtn').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+        renderKpis(g);
+      });
+      seg.append(b);
     });
+    renderKpis('Semua');
   })();
 
   /* ---------- overview ---------- */
